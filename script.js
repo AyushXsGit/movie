@@ -1,4 +1,3 @@
-```javascript
 const API = "http://10.149.222.126:8000";
 
 const $ = id => document.getElementById(id);
@@ -375,4 +374,4 @@ function escapeHTML(value) {
 }
 
 loadHome();
-```
+
