@@ -1,0 +1,306 @@
+```css
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background: #0b0b0f;
+    color: #fff;
+    font-family: Arial, sans-serif;
+}
+
+.header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 15px 5%;
+    background: rgba(10, 10, 15, 0.96);
+    border-bottom: 1px solid #24242c;
+}
+
+.logo {
+    font-size: 25px;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.logo span {
+    color: #e50914;
+}
+
+.search {
+    display: flex;
+    width: min(500px, 100%);
+}
+
+.search input {
+    flex: 1;
+    padding: 12px;
+    border: 0;
+    outline: none;
+    background: #202027;
+    color: white;
+    border-radius: 7px 0 0 7px;
+}
+
+.search button {
+    border: 0;
+    padding: 0 18px;
+    background: #e50914;
+    color: white;
+    cursor: pointer;
+    border-radius: 0 7px 7px 0;
+}
+
+.hero {
+    min-height: 380px;
+    padding: 60px 5%;
+    display: flex;
+    align-items: end;
+    background-size: cover;
+    background-position: center;
+    background-color: #17171e;
+}
+
+.hero-content {
+    max-width: 600px;
+}
+
+.hero h1 {
+    font-size: clamp(30px, 5vw, 60px);
+    margin-bottom: 15px;
+}
+
+.hero p {
+    line-height: 1.6;
+    color: #ddd;
+}
+
+.section {
+    padding: 35px 5%;
+}
+
+.section-title {
+    margin-bottom: 20px;
+}
+
+.movie-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 20px;
+}
+
+.card {
+    background: #17171e;
+    border-radius: 9px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform .2s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.card img {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    background: #25252d;
+}
+
+.card-info {
+    padding: 12px;
+}
+
+.card-title {
+    font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.card-meta {
+    color: #999;
+    font-size: 13px;
+    margin-top: 6px;
+}
+
+.modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(0, 0, 0, .85);
+    overflow-y: auto;
+    padding: 30px 15px;
+}
+
+.modal-content {
+    position: relative;
+    max-width: 1000px;
+    margin: auto;
+    padding: 25px;
+    background: #15151c;
+    border-radius: 12px;
+}
+
+.close {
+    position: absolute;
+    right: 15px;
+    top: 10px;
+    z-index: 2;
+    border: 0;
+    background: none;
+    color: white;
+    font-size: 35px;
+    cursor: pointer;
+}
+
+.detail-poster {
+    width: 180px;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    border-radius: 8px;
+    float: left;
+    margin: 0 25px 20px 0;
+}
+
+.detail-info {
+    min-height: 280px;
+}
+
+.detail-info h2 {
+    font-size: 30px;
+    margin-bottom: 15px;
+}
+
+.detail-info p {
+    color: #ccc;
+    line-height: 1.6;
+    margin-bottom: 25px;
+}
+
+.selectors {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.selectors label {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    color: #aaa;
+}
+
+select {
+    min-width: 150px;
+    padding: 10px;
+    background: #25252e;
+    color: white;
+    border: 1px solid #3a3a44;
+    border-radius: 6px;
+}
+
+.player-wrapper {
+    clear: both;
+    width: 100%;
+    margin-top: 20px;
+    background: black;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+video {
+    display: block;
+    width: 100%;
+    max-height: 600px;
+}
+
+.actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.actions button,
+.actions a {
+    padding: 11px 18px;
+    border: 0;
+    border-radius: 6px;
+    color: white;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.primary {
+    background: #e50914;
+}
+
+.download {
+    background: #33333d;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.loading {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    background: #222;
+    padding: 12px 20px;
+    border-radius: 7px;
+    z-index: 200;
+}
+
+.error {
+    position: fixed;
+    left: 20px;
+    right: 20px;
+    bottom: 20px;
+    padding: 15px;
+    background: #9b1c1c;
+    border-radius: 7px;
+    z-index: 200;
+}
+
+@media (max-width: 650px) {
+    .header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .search {
+        width: 100%;
+    }
+
+    .hero {
+        min-height: 300px;
+    }
+
+    .movie-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+
+    .detail-poster {
+        float: none;
+        width: 150px;
+        display: block;
+        margin: 0 auto 20px;
+    }
+
+    .modal-content {
+        padding: 18px;
+    }
+}
+```
