@@ -2,7 +2,7 @@
 // MOVIEHUB - SCRIPT.JS
 // ======================================================
 
-const API = "http://127.0.0.1:8000";
+const API = "https://moviebox-tui-api.onrender.com";
 
 // If backend is running on this laptop instead:
 // const API = "http://127.0.0.1:8000";
