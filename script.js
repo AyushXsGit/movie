@@ -99,14 +99,22 @@ function createMovieCard(movie) {
     const poster =
         getPoster(movie);
 
+    // Home API items use id.value.
+    // Search results can use slug/subject_id.
     const slug =
         movie?.slug ||
         movie?.detailPath ||
+        movie?.id?.value ||
+        movie?.subject_id ||
+        movie?.subjectId ||
+        movie?.subject?.subject_id ||
+        movie?.subject?.subjectId ||
         "";
 
     const subjectId =
         movie?.subject_id ||
         movie?.subjectId ||
+        movie?.id?.value ||
         movie?.subject?.subject_id ||
         movie?.subject?.subjectId ||
         "";
@@ -158,7 +166,7 @@ function createMovieCard(movie) {
             if (!slug) {
 
                 console.error(
-                    "Movie has no slug:",
+                    "Movie has no usable ID:",
                     movie
                 );
 
@@ -736,6 +744,30 @@ function renderMovieDetails(data) {
     renderLanguages(data);
 
     renderSeasons(data);
+
+    // Movies do not have season/episode buttons.
+    // Load their available qualities directly using
+    // the stream API's default movie episode values.
+    const seasons =
+        Array.isArray(
+            data?.resource?.seasons
+        )
+        ? data.resource.seasons
+        : [];
+
+    if (!seasons.length) {
+        selectedSeason = {
+            se: 0,
+            season: 0
+        };
+
+        selectedEpisode = 0;
+
+        renderQualities(
+            selectedSeason,
+            selectedEpisode
+        );
+    }
 }
 
 
@@ -1060,129 +1092,226 @@ function renderEpisodes(
 // QUALITY
 // ======================================================
 
-function renderQualities(
+async function renderQualities(
     season,
     episode
 ) {
 
     $("#qualitySection")
-        .innerHTML = "";
+        .innerHTML = `
+            <div class="selector">
+                <div class="selector-title">
+                    Quality
+                </div>
+                <div class="selector-buttons">
+                    <div class="loading">
+                        Loading qualities...
+                    </div>
+                </div>
+            </div>
+        `;
 
-    const resolutions =
-        Array.isArray(
-            season?.resolutions
-        )
-        ? season.resolutions
-        : [];
+    const subjectId =
+        currentMovie?.subjectId;
 
-    if (!resolutions.length) {
+    const se =
+        Number(
+            season?.se ||
+            season?.season ||
+            1
+        );
 
+    const ep =
+        Number(
+            episode ||
+            1
+        );
+
+    if (!subjectId) {
         $("#qualitySection")
             .innerHTML = `
                 <div class="error">
-                    No video qualities available.
+                    No movie ID available.
                 </div>
             `;
-
         return;
     }
 
-    $("#qualitySection").innerHTML = `
+    try {
 
-        <div class="selector">
+        /*
+         * Movies use the stream endpoint without season/episode
+         * parameters. The Rust API already defaults those values
+         * for movies. Series keep using their selected season/episode.
+         */
+        const hasSeasons =
+            Array.isArray(
+                currentMovie?.data?.resource?.seasons
+            ) &&
+            currentMovie.data.resource.seasons.length > 0;
 
-            <div class="selector-title">
-                Quality
+        let requestUrl =
+            `${API}/api/stream/` +
+            `${encodeURIComponent(subjectId)}`;
+
+        if (hasSeasons) {
+
+            const params =
+                new URLSearchParams();
+
+            params.set(
+                "se",
+                String(se)
+            );
+
+            params.set(
+                "ep",
+                String(ep)
+            );
+
+            requestUrl +=
+                `?${params.toString()}`;
+        }
+
+        console.log(
+            "QUALITY REQUEST:",
+            requestUrl
+        );
+
+        const response =
+            await fetch(
+                requestUrl
+            );
+
+        if (!response.ok) {
+            throw new Error(
+                `Stream API HTTP ${response.status}`
+            );
+        }
+
+        const data =
+            await response.json();
+
+        const sources =
+            Array.isArray(data?.sources)
+            ? data.sources
+            : [];
+
+        const qualities =
+            [
+                ...new Set(
+                    sources
+                        .map(
+                            source =>
+                                source?.quality
+                        )
+                        .filter(
+                            quality =>
+                                quality !== null &&
+                                quality !== undefined &&
+                                String(quality).trim() !== ""
+                        )
+                        .map(
+                            quality =>
+                                String(quality)
+                        )
+                )
+            ];
+
+        if (!qualities.length) {
+            $("#qualitySection")
+                .innerHTML = `
+                    <div class="error">
+                        No video qualities available.
+                    </div>
+                `;
+            return;
+        }
+
+        $("#qualitySection").innerHTML = `
+
+            <div class="selector">
+
+                <div class="selector-title">
+                    Quality
+                </div>
+
+                <div
+                    id="qualityButtons"
+                    class="selector-buttons"
+                ></div>
+
             </div>
+        `;
 
-            <div
-                id="qualityButtons"
-                class="selector-buttons"
-            ></div>
+        const container =
+            $("#qualityButtons");
 
-        </div>
-    `;
+        qualities.forEach(
+            (value, index) => {
 
-    const container =
-        $("#qualityButtons");
+                const button =
+                    document.createElement(
+                        "button"
+                    );
 
-    resolutions.forEach(
-        (resolution, index) => {
+                button.textContent =
+                    value;
 
-            const button =
-                document.createElement(
-                    "button"
+                button.addEventListener(
+                    "click",
+                    async () => {
+
+                        container
+                            .querySelectorAll(
+                                "button"
+                            )
+                            .forEach(
+                                b =>
+                                    b.classList
+                                        .remove(
+                                            "active"
+                                        )
+                            );
+
+                        button.classList
+                            .add("active");
+
+                        selectedQuality =
+                            String(value);
+
+                        await loadStream();
+                    }
                 );
 
-            const value =
-                typeof resolution === "object"
-                ?
-                (
-                    resolution?.resolution ||
-                    resolution?.name ||
-                    resolution?.quality ||
-                    `Quality ${index + 1}`
-                )
-                :
-                resolution;
+                container.appendChild(
+                    button
+                );
 
-            button.textContent =
-                value;
-
-            button.addEventListener(
-                "click",
-                async () => {
-
-                    container
-                        .querySelectorAll(
-                            "button"
-                        )
-                        .forEach(
-                            b =>
-                                b.classList
-                                    .remove(
-                                        "active"
-                                    )
-                        );
-
+                if (index === 0) {
                     button.classList
                         .add("active");
 
                     selectedQuality =
                         String(value);
-
-                    console.log(
-                        "STREAM SELECTION:",
-                        {
-                            subject_id:
-                                currentMovie?.subjectId,
-
-                            detail_path:
-                                currentMovie?.slug,
-
-                            se:
-                                selectedSeason?.se ||
-                                selectedSeason?.season ||
-                                1,
-
-                            ep:
-                                selectedEpisode ||
-                                1,
-
-                            quality:
-                                selectedQuality
-                        }
-                    );
-
-                    await loadStream();
                 }
-            );
+            }
+        );
 
-            container.appendChild(
-                button
-            );
-        }
-    );
+    } catch (error) {
+
+        console.error(
+            "QUALITY ERROR:",
+            error
+        );
+
+        $("#qualitySection")
+            .innerHTML = `
+                <div class="error">
+                    Unable to load video qualities.
+                </div>
+            `;
+    }
 }
 
 
@@ -1243,29 +1372,37 @@ async function loadStream() {
     // QUERY PARAMETERS
     // ----------------------------------------------
 
-    const params =
-        new URLSearchParams();
+    // Movies do not have seasons/episodes. The Rust API
+    // returns movie sources when called with only the ID.
+    // Series keep their season/episode parameters.
+    const hasSeasons =
+        Array.isArray(
+            currentMovie?.data?.resource?.seasons
+        ) &&
+        currentMovie.data.resource.seasons.length > 0;
 
-    params.set(
-        "detail_path",
-        detailPath
-    );
-
-    params.set(
-        "se",
-        String(season)
-    );
-
-    params.set(
-        "ep",
-        String(episode)
-    );
-
-
-    const requestUrl =
+    let requestUrl =
         `${API}/api/stream/` +
-        `${encodeURIComponent(subjectId)}` +
-        `?${params.toString()}`;
+        `${encodeURIComponent(subjectId)}`;
+
+    if (hasSeasons) {
+
+        const params =
+            new URLSearchParams();
+
+        params.set(
+            "se",
+            String(season)
+        );
+
+        params.set(
+            "ep",
+            String(episode)
+        );
+
+        requestUrl +=
+            `?${params.toString()}`;
+    }
 
 
     console.log(
@@ -1591,6 +1728,8 @@ function getUrlFromObject(
 
     const keys = [
 
+        "proxy_url",
+        "proxyUrl",
         "url",
         "video_url",
         "videoUrl",
@@ -1774,315 +1913,340 @@ function extractVideoUrl(
 
 
 // ======================================================
-// PLAY VIDEO
+// EXTERNAL PLAYER HELPERS
 // ======================================================
 
-function playVideoFromApi(
-    videoUrl
-) {
+function openExternalPlayer(player, videoUrl) {
 
     if (!videoUrl) {
-
-        showPlayerError(
-            "Video URL is empty."
-        );
-
+        showPlayerError("Video URL is empty.");
         return;
     }
 
+    const ua = navigator.userAgent || "";
+    const isAndroid = /Android/i.test(ua);
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+    const status = () => $("#externalPlayerStatus");
+
+    const names = {
+        vlc: "VLC",
+        mx: "MX Player",
+        next: "Next Player"
+    };
+
+    const name = names[player] || "player";
+
+    // Android: explicit Android VIEW intents. Android's intent system can
+    // route a network URL to the requested player, and the browser fallback
+    // is only used when that app is not installed.
+    if (isAndroid) {
+        const packages = {
+            vlc: "org.videolan.vlc",
+            mx: "com.mxtech.videoplayer.ad",
+            next: "dev.anilbeesetti.nextplayer"
+        };
+
+        const packageName = packages[player];
+
+        if (packageName) {
+            try {
+                const parsed = new URL(videoUrl);
+                const path = `${parsed.host}${parsed.pathname}${parsed.search}${parsed.hash}`;
+                const scheme = parsed.protocol.replace(":", "");
+
+                const intent =
+                    `intent://${path}` +
+                    `#Intent;scheme=${scheme};action=android.intent.action.VIEW;` +
+                    `type=video/*;package=${packageName};` +
+                    `S.browser_fallback_url=${encodeURIComponent(videoUrl)};end`;
+
+                if (status()) status().textContent = `Opening ${name}...`;
+                window.location.href = intent;
+                return;
+            } catch (error) {
+                console.warn("Android player launch failed:", error);
+            }
+        }
+
+        // Last Android fallback: let Android show the normal app chooser.
+        if (status()) status().textContent = `Opening Android app chooser for ${name}...`;
+        try {
+            const parsed = new URL(videoUrl);
+            const path = `${parsed.host}${parsed.pathname}${parsed.search}${parsed.hash}`;
+            const scheme = parsed.protocol.replace(":", "");
+            window.location.href =
+                `intent://${path}#Intent;scheme=${scheme};action=android.intent.action.VIEW;type=video/*;end`;
+            return;
+        } catch (error) {
+            console.warn("Generic Android intent failed:", error);
+        }
+    }
+
+    // iPhone/iPad: VLC for iOS supports network streams. Safari may ask for
+    // permission before handing the custom URL to VLC.
+    if (player === "vlc" && isIOS) {
+        if (status()) status().textContent = "Opening VLC... If asked, tap Open.";
+        const callbackUrl =
+            `vlc-x-callback://x-callback-url/stream?url=${encodeURIComponent(videoUrl)}`;
+        window.location.href = callbackUrl;
+        return;
+    }
+
+    // Windows/macOS/Linux desktop: browsers cannot directly execute an
+    // installed application. The custom MovieHub protocol is registered by
+    // install-vlc-protocol.bat and passes the REAL network URL to VLC.
+    if (player === "vlc") {
+        if (status()) {
+            status().textContent =
+                "Opening VLC... If Chrome asks, choose Open MovieHub VLC.";
+        }
+
+        const handlerUrl =
+            `moviehub-vlc://open?url=${encodeURIComponent(videoUrl)}`;
+
+        try {
+            window.location.href = handlerUrl;
+        } catch (error) {
+            console.warn("VLC protocol launch failed:", error);
+            if (status()) {
+                status().textContent =
+                    "VLC launcher is not registered. Run install-vlc-protocol.bat once.";
+            }
+        }
+        return;
+    }
+
+    // MX Player and Next Player are Android apps. On iOS/desktop there is no
+    // universal browser API that can force those apps to launch. Give the
+    // user a clear fallback instead of downloading the DASH manifest.
+    if (status()) {
+        if (isIOS) {
+            status().textContent =
+                `${name} is not available through a universal iPhone web launch. Use Copy stream URL and open it in a compatible player.`;
+        } else {
+            status().textContent =
+                `${name} can be launched directly on Android. On this device, use Copy stream URL and open it in the player.`;
+        }
+    }
+}
+
+
+function copyStreamUrl(videoUrl) {
+
+    if (!videoUrl) {
+        showPlayerError("Video URL is empty.");
+        return;
+    }
+
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(videoUrl)
+            .then(() => {
+                const status = $("#externalPlayerStatus");
+                if (status) status.textContent = "Stream URL copied.";
+            })
+            .catch(() => fallbackCopy(videoUrl));
+        return;
+    }
+
+    fallbackCopy(videoUrl);
+}
+
+
+function fallbackCopy(videoUrl) {
+
+    const area = document.createElement("textarea");
+    area.value = videoUrl;
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.focus();
+    area.select();
+
+    try {
+        document.execCommand("copy");
+        const status = $("#externalPlayerStatus");
+        if (status) status.textContent = "Stream URL copied.";
+    } catch (error) {
+        console.warn("Could not copy stream URL:", error);
+    }
+
+    area.remove();
+}
+
+
+function renderExternalPlayerButtons(videoUrl) {
+
+    const box = $("#externalPlayers");
+
+    if (!box || !videoUrl) {
+        return;
+    }
+
+    box.innerHTML = `
+        <div class="external-player-title">Play with external player</div>
+        <div class="external-player-buttons">
+            <button type="button" class="external-player-button" data-player="vlc">▶ VLC</button>
+            <button type="button" class="external-player-button" data-player="mx">▶ MX Player</button>
+            <button type="button" class="external-player-button" data-player="next">▶ Next Player</button>
+            <button type="button" class="external-player-button secondary" id="copyStreamButton">Copy stream URL</button>
+        </div>
+        <div id="externalPlayerStatus" class="external-player-status">
+            The selected quality stream is ready. On Android, the system will try the selected app and otherwise use the stream URL.
+        </div>
+    `;
+
+    box.querySelectorAll("[data-player]").forEach(button => {
+        button.addEventListener("click", () => {
+            openExternalPlayer(button.dataset.player, videoUrl);
+        });
+    });
+
+    $("#copyStreamButton")?.addEventListener("click", () => {
+        copyStreamUrl(videoUrl);
+    });
+}
+
+
+// ======================================================
+// PLAY VIDEO
+// ======================================================
+
+function playVideoFromApi(videoUrl) {
+
+    if (!videoUrl) {
+        showPlayerError("Video URL is empty.");
+        return;
+    }
+
+    console.log("PLAY VIDEO:", videoUrl);
+
+    renderExternalPlayerButtons(videoUrl);
 
     console.log(
-        "PLAY VIDEO:",
-        videoUrl
+        "PLAYBACK SOURCE TYPE:",
+        videoUrl.startsWith("http://127.0.0.1:")
+            ? "LOCAL MOVIEBOX PROXY"
+            : "DIRECT/REMOTE URL"
     );
 
-
-    const lowerUrl =
-        videoUrl.toLowerCase();
-
-
-    const isHLS =
-        lowerUrl.includes(
-            ".m3u8"
-        );
-
-
-    const isMP4 =
-        lowerUrl.includes(
-            ".mp4"
-        );
-
-
-    console.log(
-        "MEDIA TYPE:",
-        isHLS
-            ? "HLS"
-            : isMP4
-                ? "MP4"
-                : "UNKNOWN"
-    );
-
-
-    // ----------------------------------------------
-    // CREATE PLAYER
-    // ----------------------------------------------
+    const lowerUrl = videoUrl.toLowerCase();
+    const isDASH = lowerUrl.includes(".mpd");
+    const isMP4 = lowerUrl.includes(".mp4");
+    const isHLS = lowerUrl.includes(".m3u8");
 
     $("#playerBox").innerHTML = `
-
         <video
             id="videoPlayer"
             controls
             playsinline
             preload="auto"
-            crossorigin="anonymous"
-            style="
-                width:100%;
-                max-width:100%;
-                display:block;
-                background:#000;
-            "
+            style="width:100%;max-width:100%;display:block;background:#000;"
         >
             Your browser does not support video.
         </video>
-
-        <div
-            id="videoStatus"
-            style="
-                padding:8px;
-                font-size:13px;
-            "
-        >
+        <div id="videoStatus" style="padding:8px;font-size:13px;">
             Loading media...
         </div>
-
     `;
 
+    const video = $("#videoPlayer");
+    const status = $("#videoStatus");
 
-    const video =
-        $("#videoPlayer");
+    video.addEventListener("loadedmetadata", () => {
+        status.textContent =
+            `Ready • ${Math.round(video.duration || 0)} sec`;
+    });
 
+    video.addEventListener("canplay", () => {
+        status.textContent = "Ready to play.";
+        video.play().catch(() => {
+            status.textContent = "Ready — press Play.";
+        });
+    });
 
-    const status =
-        $("#videoStatus");
+    video.addEventListener("playing", () => {
+        status.textContent = "Playing";
+    });
 
+    video.addEventListener("waiting", () => {
+        status.textContent = "Buffering...";
+    });
 
-    // ----------------------------------------------
-    // VIDEO EVENTS
-    // ----------------------------------------------
+    video.addEventListener("error", () => {
+        console.error("VIDEO ERROR:", video.error);
+        status.textContent =
+            "The browser could not load this authorized video source. Check the browser console for the provider response.";
+    });
 
-    video.addEventListener(
-        "loadstart",
-        () => {
+    // MPEG-DASH manifests need a DASH player.
+    if (isDASH) {
 
-            status.textContent =
-                "Loading media...";
-
-        }
-    );
-
-
-    video.addEventListener(
-        "loadedmetadata",
-        () => {
-
-            console.log(
-                "VIDEO METADATA LOADED:",
-                {
-                    duration:
-                        video.duration,
-
-                    width:
-                        video.videoWidth,
-
-                    height:
-                        video.videoHeight
-                }
+        if (typeof dashjs === "undefined") {
+            showPlayerError(
+                "DASH player library could not be loaded."
             );
-
-
-            status.textContent =
-                `Ready • ${Math.round(video.duration || 0)} sec`;
-
+            return;
         }
-    );
 
+        console.log("Initializing MPEG-DASH player...");
 
-    video.addEventListener(
-        "canplay",
-        () => {
+        const player =
+            dashjs.MediaPlayer().create();
 
-            console.log(
-                "VIDEO CAN PLAY"
-            );
+        window.currentDashPlayer = player;
 
-
-            status.textContent =
-                "Ready to play.";
-
-
-            // Try autoplay only after media
-            // is actually ready.
-
-            video.play()
-                .catch(
-                    error => {
-
-                        console.log(
-                            "Autoplay blocked:",
-                            error
-                        );
-
-                        status.textContent =
-                            "Ready — press Play.";
-
-                    }
+        player.on(
+            dashjs.MediaPlayer.events.ERROR,
+            (event) => {
+                console.error(
+                    "DASH PLAYER ERROR:",
+                    event
                 );
-        }
-    );
 
-
-    video.addEventListener(
-        "playing",
-        () => {
-
-            status.textContent =
-                "Playing";
-
-        }
-    );
-
-
-    video.addEventListener(
-        "waiting",
-        () => {
-
-            status.textContent =
-                "Buffering...";
-
-        }
-    );
-
-
-    video.addEventListener(
-        "stalled",
-        () => {
-
-            status.textContent =
-                "Media stalled.";
-
-            console.warn(
-                "VIDEO STALLED"
-            );
-
-        }
-    );
-
-
-    video.addEventListener(
-        "error",
-        () => {
-
-            const error =
-                video.error;
-
-
-            console.error(
-                "VIDEO ERROR:",
-                error
-            );
-
-
-            let message =
-                "Browser could not play this video.";
-
-
-            if (error) {
-
-                switch (
-                    error.code
-                ) {
-
-                    case 1:
-
-                        message =
-                            "Video loading was aborted.";
-
-                        break;
-
-
-                    case 2:
-
-                        message =
-                            "Network error while loading video.";
-
-                        break;
-
-
-                    case 3:
-
-                        message =
-                            "Video decoding error. The format or codec may not be supported.";
-
-                        break;
-
-
-                    case 4:
-
-                        message =
-                            "Video format/source is not supported.";
-
-                        break;
-
-                }
+                status.textContent =
+                    "The video provider rejected or could not serve the DASH manifest.";
             }
+        );
 
+        player.on(
+            dashjs.MediaPlayer.events.STREAM_INITIALIZED,
+            () => {
+                console.log("DASH STREAM INITIALIZED");
+                status.textContent =
+                    "DASH stream ready — press Play.";
+            }
+        );
 
-            status.textContent =
-                message;
+        player.initialize(
+            video,
+            videoUrl,
+            false
+        );
 
+        $("#downloadBox").innerHTML = "";
 
-            console.error(
-                "VIDEO ERROR MESSAGE:",
-                message
-            );
+        return;
+    }
 
-        }
-    );
-
-
-    // ----------------------------------------------
-    // SET SOURCE
-    // ----------------------------------------------
-
-    video.src =
-        videoUrl;
-
-
+    // Native MP4/HLS fallback.
+    video.src = videoUrl;
     video.load();
 
-
-    // ----------------------------------------------
-    // DOWNLOAD
-    // ----------------------------------------------
-
     $("#downloadBox").innerHTML = `
-
         <a
             class="download-button"
             href="${escapeHTML(videoUrl)}"
-            download
             target="_blank"
             rel="noopener"
         >
-            Download
+            Open authorized source
         </a>
-
     `;
-
 }
 
 
 // ======================================================
+
 // PLAYER ERROR
 // ======================================================
 
@@ -2103,6 +2267,9 @@ function showPlayerError(
 
     $("#downloadBox")
         .innerHTML = "";
+
+    const externalPlayers = $("#externalPlayers");
+    if (externalPlayers) externalPlayers.innerHTML = "";
 }
 
 
@@ -2146,6 +2313,19 @@ function resetPlayer() {
 // ======================================================
 
 function stopCurrentVideo() {
+
+    if (window.currentDashPlayer) {
+        try {
+            window.currentDashPlayer.reset();
+        } catch (error) {
+            console.warn(
+                "Could not reset DASH player:",
+                error
+            );
+        }
+        window.currentDashPlayer = null;
+    }
+
 
     const video =
         $("#videoPlayer");

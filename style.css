@@ -462,6 +462,58 @@ main {
 
 
 /* =========================
+   EXTERNAL PLAYERS
+========================= */
+
+.external-players {
+    margin-top: 16px;
+    padding: 16px;
+    border: 1px solid #2d2d35;
+    border-radius: 10px;
+    background: #111116;
+}
+
+.external-player-title {
+    margin-bottom: 10px;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.external-player-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+}
+
+.external-player-button {
+    min-height: 42px;
+    padding: 10px 15px;
+    border: 1px solid #44444d;
+    border-radius: 8px;
+    background: #25252d;
+    color: white;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.external-player-button:hover {
+    background: #33333c;
+}
+
+.external-player-button.secondary {
+    background: #19191f;
+}
+
+.external-player-status {
+    margin-top: 10px;
+    color: #aaa;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+
+/* =========================
    HELPERS
 ========================= */
 
