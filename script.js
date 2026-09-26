@@ -2065,16 +2065,59 @@ function playVideoFromApi(
     // DOWNLOAD
     // ----------------------------------------------
 
+    const downloadSubjectId =
+        currentMovie?.subjectId;
+
+    const downloadParams =
+        new URLSearchParams();
+
+    if (selectedSeason != null) {
+        const season =
+            selectedSeason?.se ??
+            selectedSeason?.season ??
+            selectedSeason;
+
+        if (season != null) {
+            downloadParams.set("se", season);
+        }
+    }
+
+    if (selectedEpisode != null) {
+        const episode =
+            selectedEpisode?.ep ??
+            selectedEpisode?.episode ??
+            selectedEpisode;
+
+        if (episode != null) {
+            downloadParams.set("ep", episode);
+        }
+    }
+
+    if (selectedQuality) {
+        downloadParams.set(
+            "quality",
+            selectedQuality
+        );
+    }
+
+    const downloadUrl =
+        downloadSubjectId
+            ? `${API}/api/download/${encodeURIComponent(downloadSubjectId)}` +
+              (downloadParams.toString()
+                  ? `?${downloadParams.toString()}`
+                  : "")
+            : videoUrl;
+
     $("#downloadBox").innerHTML = `
 
         <a
             class="download-button"
-            href="${escapeHTML(videoUrl)}"
+            href="${escapeHTML(downloadUrl)}"
             download
             target="_blank"
             rel="noopener"
         >
-            Download
+            Download MP4
         </a>
 
     `;
