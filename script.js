@@ -3,9 +3,10 @@
 // ======================================================
 
 const API = "https://moviebox-tui-api.onrender.com";
+// const API = "http://127.0.0.1:8000";
 
 // If backend is running on this laptop instead:
-// const API = "http://127.0.0.1:8000";
+// // const API = "http://127.0.0.1:8000";
 
 
 let currentMovie = null;
@@ -2267,16 +2268,30 @@ function playVideoFromApi(videoUrl) {
                 : videoUrl;
 
         $("#downloadBox").innerHTML = `
-            <a
+            <button
+                id="startDownloadButton"
                 class="download-button"
-                href="${escapeHTML(downloadUrl)}"
-                download
-                target="_blank"
-                rel="noopener"
+                type="button"
             >
                 Download MP4
-            </a>
+            </button>
         `;
+
+        const startDownloadButton =
+            document.getElementById("startDownloadButton");
+
+        if (startDownloadButton) {
+            startDownloadButton.addEventListener(
+                "click",
+                () => {
+                    startDownloadManager(
+                        downloadSubjectId,
+                        downloadParams,
+                        currentMovie?.title || currentMovie?.name || "Movie"
+                    );
+                }
+            );
+        }
 
         return;
     }
@@ -2299,6 +2314,235 @@ function playVideoFromApi(videoUrl) {
 
 
 // ======================================================
+
+// ======================================================
+// DOWNLOAD MANAGER
+// ======================================================
+
+let activeDownloadPoll = null;
+
+function formatDownloadTime(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) return "00:00";
+
+    const total = Math.floor(seconds);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const secs = total % 60;
+
+    if (hours > 0) {
+        return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+    }
+
+    return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+function startDownloadManager(subjectId, params, movieName) {
+    if (activeDownloadPoll) {
+        clearInterval(activeDownloadPoll);
+        activeDownloadPoll = null;
+    }
+
+    const query =
+        params && params.toString()
+            ? `?${params.toString()}`
+            : "";
+
+    const startUrl =
+        `${API}/api/download/start/${encodeURIComponent(subjectId)}` +
+        query;
+
+    $("#downloadBox").innerHTML = `
+        <div class="download-manager">
+            <div class="download-manager-title">Downloading...</div>
+            <div class="download-manager-name">
+                ${escapeHTML(movieName || "Movie")}
+            </div>
+
+            <div class="download-progress-track">
+                <div id="downloadProgressBar" class="download-progress-bar"></div>
+            </div>
+
+            <div class="download-progress-row">
+                <span id="downloadProgressText">Starting...</span>
+                <span id="downloadPercent">0%</span>
+            </div>
+
+            <div class="download-stats">
+                <div class="download-stat">
+                    <div class="download-stat-label">Duration</div>
+                    <div id="downloadDuration" class="download-stat-value">00:00 / 00:00</div>
+                </div>
+                <div class="download-stat">
+                    <div class="download-stat-label">Speed</div>
+                    <div id="downloadSpeed" class="download-stat-value">--</div>
+                </div>
+                <div class="download-stat">
+                    <div class="download-stat-label">Downloaded</div>
+                    <div id="downloadSize" class="download-stat-value">--</div>
+                </div>
+            </div>
+
+            <div id="downloadActions" class="download-actions">
+                <button id="downloadCancel" class="download-cancel" type="button">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    `;
+
+    fetch(startUrl)
+        .then(response => {
+            if (!response.ok) throw new Error("Could not start download.");
+            return response.json();
+        })
+        .then(data => {
+            if (!data.job_id) {
+                throw new Error("Download job ID was not returned.");
+            }
+
+            pollDownloadStatus(data.job_id);
+
+            const cancelButton = document.getElementById("downloadCancel");
+
+            if (cancelButton) {
+                cancelButton.addEventListener("click", async () => {
+                    cancelButton.disabled = true;
+                    cancelButton.textContent = "Cancelling...";
+
+                    try {
+                        const response = await fetch(
+                            `${API}/api/download/cancel/${encodeURIComponent(data.job_id)}`,
+                            { method: "POST" }
+                        );
+
+                        if (!response.ok) {
+                            throw new Error("Could not cancel download.");
+                        }
+                    } catch (error) {
+                        cancelButton.disabled = false;
+                        cancelButton.textContent = "Cancel";
+                        console.error("Download cancellation failed:", error);
+                    }
+                });
+            }
+        })
+        .catch(error => {
+            $("#downloadBox").innerHTML = `
+                <div class="download-manager">
+                    <div class="download-manager-title">Download error</div>
+                    <div class="download-manager-name">${escapeHTML(error.message)}</div>
+                </div>
+            `;
+        });
+}
+
+function pollDownloadStatus(jobId) {
+    if (activeDownloadPoll) {
+        clearInterval(activeDownloadPoll);
+    }
+
+    const check = async () => {
+        try {
+            const response = await fetch(
+                `${API}/api/download/status/${encodeURIComponent(jobId)}`
+            );
+
+            if (!response.ok) {
+                throw new Error("Could not read download status.");
+            }
+
+            const data = await response.json();
+
+            const progress = Math.max(
+                0,
+                Math.min(100, Number(data.progress) || 0)
+            );
+
+            const bar = document.getElementById("downloadProgressBar");
+            const percent = document.getElementById("downloadPercent");
+            const progressText = document.getElementById("downloadProgressText");
+            const duration = document.getElementById("downloadDuration");
+            const speed = document.getElementById("downloadSpeed");
+            const size = document.getElementById("downloadSize");
+
+            if (bar) bar.style.width = `${progress}%`;
+            if (percent) percent.textContent = `${progress.toFixed(1)}%`;
+
+            if (progressText) {
+                progressText.textContent =
+                    data.status === "completed"
+                        ? "Completed"
+                        : data.status === "error"
+                            ? "Download failed"
+                            : "Downloading...";
+            }
+
+            if (duration) {
+                duration.textContent =
+                    `${formatDownloadTime(Number(data.downloaded_seconds))} / ` +
+                    `${formatDownloadTime(Number(data.total_seconds))}`;
+            }
+
+            if (speed) speed.textContent = data.speed || "--";
+            if (size) size.textContent = data.size || "--";
+
+            if (data.status === "completed" && data.ready) {
+                clearInterval(activeDownloadPoll);
+                activeDownloadPoll = null;
+
+                const actions = document.getElementById("downloadActions");
+
+                if (actions) {
+                    actions.innerHTML = `
+                        <a
+                            class="download-save"
+                            href="${API}/api/download/file/${encodeURIComponent(jobId)}"
+                            download
+                            target="_blank"
+                            rel="noopener"
+                        >
+                            Save MP4
+                        </a>
+                    `;
+                }
+
+                return;
+            }
+
+            if (data.status === "cancelled") {
+                clearInterval(activeDownloadPoll);
+                activeDownloadPoll = null;
+
+                if (progressText) {
+                    progressText.textContent = "Cancelled";
+                }
+
+                const actions = document.getElementById("downloadActions");
+
+                if (actions) {
+                    actions.innerHTML = "";
+                }
+
+                return;
+            }
+
+            if (data.status === "error") {
+                clearInterval(activeDownloadPoll);
+                activeDownloadPoll = null;
+
+                if (progressText) {
+                    progressText.textContent =
+                        data.error || "Download failed";
+                }
+            }
+        } catch (error) {
+            console.error("DOWNLOAD STATUS ERROR:", error);
+        }
+    };
+
+    check();
+    activeDownloadPoll = setInterval(check, 1000);
+}
 
 // PLAYER ERROR
 // ======================================================
