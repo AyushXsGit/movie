@@ -1415,27 +1415,19 @@ async function loadStream() {
     // LOADING
     // ----------------------------------------------
 
-    $("#playerBox").innerHTML = `
-
-        <div class="player-placeholder">
-
-            <div class="big-play">
-                ⏳
-            </div>
-
-            <h3>
-                Loading video...
-            </h3>
-
-            <p>
+    const externalPlayers = $("#externalPlayers");
+    if (externalPlayers) {
+        externalPlayers.innerHTML = `
+            <div class="external-player-status">
                 Getting video source...
-            </p>
+            </div>
+        `;
+    }
 
-        </div>
-    `;
-
-    $("#downloadBox")
-        .innerHTML = "";
+    const downloadBox = $("#downloadBox");
+    if (downloadBox) {
+        downloadBox.innerHTML = "";
+    }
 
 
     try {
@@ -2118,155 +2110,17 @@ function playVideoFromApi(videoUrl) {
         return;
     }
 
-    console.log("PLAY VIDEO:", videoUrl);
+    console.log("EXTERNAL PLAYER ONLY:", videoUrl);
 
+    // The internal browser/DASH player is intentionally disabled.
+    // Only external players are rendered for the selected quality.
     renderExternalPlayerButtons(videoUrl);
 
-    console.log(
-        "PLAYBACK SOURCE TYPE:",
-        videoUrl.startsWith("http://127.0.0.1:")
-            ? "LOCAL MOVIEBOX PROXY"
-            : "DIRECT/REMOTE URL"
-    );
+    // Keep the Download MP4 UI, but never start a backend download.
+    const downloadBox = $("#downloadBox");
 
-    const lowerUrl = videoUrl.toLowerCase();
-    const isDASH = lowerUrl.includes(".mpd");
-    const isMP4 = lowerUrl.includes(".mp4");
-    const isHLS = lowerUrl.includes(".m3u8");
-
-    $("#playerBox").innerHTML = `
-        <video
-            id="videoPlayer"
-            controls
-            playsinline
-            preload="auto"
-            style="width:100%;max-width:100%;display:block;background:#000;"
-        >
-            Your browser does not support video.
-        </video>
-        <div id="videoStatus" style="padding:8px;font-size:13px;">
-            Loading media...
-        </div>
-    `;
-
-    const video = $("#videoPlayer");
-    const status = $("#videoStatus");
-
-    video.addEventListener("loadedmetadata", () => {
-        status.textContent =
-            `Ready • ${Math.round(video.duration || 0)} sec`;
-    });
-
-    video.addEventListener("canplay", () => {
-        status.textContent = "Ready to play.";
-        video.play().catch(() => {
-            status.textContent = "Ready — press Play.";
-        });
-    });
-
-    video.addEventListener("playing", () => {
-        status.textContent = "Playing";
-    });
-
-    video.addEventListener("waiting", () => {
-        status.textContent = "Buffering...";
-    });
-
-    video.addEventListener("error", () => {
-        console.error("VIDEO ERROR:", video.error);
-        status.textContent =
-            "The browser could not load this authorized video source. Check the browser console for the provider response.";
-    });
-
-    // MPEG-DASH manifests need a DASH player.
-    if (isDASH) {
-
-        if (typeof dashjs === "undefined") {
-            showPlayerError(
-                "DASH player library could not be loaded."
-            );
-            return;
-        }
-
-        console.log("Initializing MPEG-DASH player...");
-
-        const player =
-            dashjs.MediaPlayer().create();
-
-        window.currentDashPlayer = player;
-
-        player.on(
-            dashjs.MediaPlayer.events.ERROR,
-            (event) => {
-                console.error(
-                    "DASH PLAYER ERROR:",
-                    event
-                );
-
-                status.textContent =
-                    "The video provider rejected or could not serve the DASH manifest.";
-            }
-        );
-
-        player.on(
-            dashjs.MediaPlayer.events.STREAM_INITIALIZED,
-            () => {
-                console.log("DASH STREAM INITIALIZED");
-                status.textContent =
-                    "DASH stream ready — press Play.";
-            }
-        );
-
-        player.initialize(
-            video,
-            videoUrl,
-            false
-        );
-
-        const downloadSubjectId =
-            currentMovie?.subjectId;
-
-        const downloadParams =
-            new URLSearchParams();
-
-        if (selectedSeason != null) {
-            const season =
-                selectedSeason?.se ??
-                selectedSeason?.season ??
-                selectedSeason;
-
-            if (season != null) {
-                downloadParams.set("se", season);
-            }
-        }
-
-        if (selectedEpisode != null) {
-            const episode =
-                selectedEpisode?.ep ??
-                selectedEpisode?.episode ??
-                selectedEpisode;
-
-            if (episode != null) {
-                downloadParams.set("ep", episode);
-            }
-        }
-
-        if (selectedQuality) {
-            downloadParams.set(
-                "quality",
-                selectedQuality
-            );
-        }
-
-        const downloadUrl =
-            downloadSubjectId
-                ? `${API}/api/download/${encodeURIComponent(downloadSubjectId)}` +
-                  (downloadParams.toString()
-                      ? `?${downloadParams.toString()}`
-                      : "")
-                : videoUrl;
-
-        $("#downloadBox").innerHTML = `
+    if (downloadBox) {
+        downloadBox.innerHTML = `
             <button
                 id="startDownloadButton"
                 class="download-button"
@@ -2289,28 +2143,10 @@ function playVideoFromApi(videoUrl) {
                 }
             );
         }
-
-        return;
     }
 
-    // Native MP4/HLS fallback.
-    video.src = videoUrl;
-    video.load();
-
-    $("#downloadBox").innerHTML = `
-        <a
-            class="download-button"
-            href="${escapeHTML(videoUrl)}"
-            target="_blank"
-            rel="noopener"
-        >
-            Open authorized source
-        </a>
-    `;
+    return;
 }
-
-
-// ======================================================
 
 
 // ======================================================
@@ -2609,22 +2445,20 @@ function showPlayerError(
     message
 ) {
 
-    $("#playerBox").innerHTML = `
-
-        <div class="error">
-
-            ${escapeHTML(message)}
-
-        </div>
-
-    `;
-
-
-    $("#downloadBox")
-        .innerHTML = "";
-
     const externalPlayers = $("#externalPlayers");
-    if (externalPlayers) externalPlayers.innerHTML = "";
+
+    if (externalPlayers) {
+        externalPlayers.innerHTML = `
+            <div class="error">
+                ${escapeHTML(message)}
+            </div>
+        `;
+    }
+
+    const downloadBox = $("#downloadBox");
+    if (downloadBox) {
+        downloadBox.innerHTML = "";
+    }
 }
 
 
@@ -2634,38 +2468,27 @@ function showPlayerError(
 
 function resetPlayer() {
 
-    stopCurrentVideo();
+    if (window.currentDashPlayer) {
+        try {
+            window.currentDashPlayer.reset();
+        } catch (error) {
+            console.warn("Could not reset legacy player:", error);
+        }
+        window.currentDashPlayer = null;
+    }
 
+    if (activeDownloadPoll) {
+        clearInterval(activeDownloadPoll);
+        activeDownloadPoll = null;
+    }
 
-    $("#playerBox").innerHTML = `
+    const downloadBox = $("#downloadBox");
+    if (downloadBox) downloadBox.innerHTML = "";
 
-        <div class="player-placeholder">
-
-            <div class="big-play">
-                ▶
-            </div>
-
-            <h3>
-                Select an authorized video source
-            </h3>
-
-            <p>
-                The video player will load the
-                authorized URL here.
-            </p>
-
-        </div>
-    `;
-
-
-    $("#downloadBox")
-        .innerHTML = "";
+    const externalPlayers = $("#externalPlayers");
+    if (externalPlayers) externalPlayers.innerHTML = "";
 }
 
-
-// ======================================================
-// STOP PLAYER
-// ======================================================
 
 function stopCurrentVideo() {
 
@@ -2673,41 +2496,20 @@ function stopCurrentVideo() {
         try {
             window.currentDashPlayer.reset();
         } catch (error) {
-            console.warn(
-                "Could not reset DASH player:",
-                error
-            );
+            console.warn("Could not stop legacy player:", error);
         }
         window.currentDashPlayer = null;
     }
 
-
-    const video =
-        $("#videoPlayer");
-
-
-    if (!video) {
-        return;
-    }
-
-
-    try {
-
-        video.pause();
-
-        video.removeAttribute(
-            "src"
-        );
-
-        video.load();
-
-    } catch (error) {
-
-        console.error(
-            "STOP VIDEO ERROR:",
-            error
-        );
-
+    const video = $("#videoPlayer");
+    if (video) {
+        try {
+            video.pause();
+            video.removeAttribute("src");
+            video.load();
+        } catch (error) {
+            console.warn("Could not stop legacy video element:", error);
+        }
     }
 }
 
