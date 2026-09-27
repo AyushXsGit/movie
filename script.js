@@ -204,7 +204,7 @@ function renderMovies(
 
         container.innerHTML = `
             <div class="loading">
-                © 2026·Yaduvanshi
+                ©2026·Yaduvanshi
             </div>
         `;
 
