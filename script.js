@@ -2283,12 +2283,10 @@ function playVideoFromApi(videoUrl) {
         if (startDownloadButton) {
             startDownloadButton.addEventListener(
                 "click",
-                () => {
-                    startDownloadManager(
-                        downloadSubjectId,
-                        downloadParams,
-                        currentMovie?.title || currentMovie?.name || "Movie"
-                    );
+                (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    showDownloadDisabledPopup();
                 }
             );
         }
@@ -2314,6 +2312,67 @@ function playVideoFromApi(videoUrl) {
 
 
 // ======================================================
+
+
+// ======================================================
+// DOWNLOAD DISABLED POPUP
+// ======================================================
+
+function showDownloadDisabledPopup() {
+    let popup = document.getElementById("downloadDisabledPopup");
+
+    if (!popup) {
+        popup = document.createElement("div");
+        popup.id = "downloadDisabledPopup";
+        popup.innerHTML = `
+            <div class="download-disabled-popup-content" role="dialog" aria-modal="true">
+                <h3>Download currently disabled</h3>
+                <p>~Paisa nhi hai service k liye</p>
+                <button type="button" id="downloadDisabledClose">OK</button>
+            </div>
+        `;
+
+        Object.assign(popup.style, {
+            position: "fixed",
+            inset: "0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: "99999",
+            background: "rgba(0,0,0,.65)",
+            padding: "20px",
+            boxSizing: "border-box"
+        });
+
+        const content = popup.querySelector(".download-disabled-popup-content");
+        Object.assign(content.style, {
+            width: "min(420px, 100%)",
+            boxSizing: "border-box",
+            background: "#111",
+            color: "#fff",
+            border: "1px solid rgba(255,255,255,.15)",
+            borderRadius: "14px",
+            padding: "24px",
+            textAlign: "center",
+            boxShadow: "0 18px 60px rgba(0,0,0,.45)"
+        });
+
+        const button = popup.querySelector("#downloadDisabledClose");
+        Object.assign(button.style, {
+            border: "0",
+            borderRadius: "8px",
+            padding: "10px 18px",
+            cursor: "pointer",
+            font: "inherit"
+        });
+
+        button.addEventListener("click", () => popup.remove());
+        popup.addEventListener("click", event => {
+            if (event.target === popup) popup.remove();
+        });
+        document.body.appendChild(popup);
+    }
+}
 
 // ======================================================
 // DOWNLOAD MANAGER
