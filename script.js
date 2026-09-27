@@ -204,7 +204,7 @@ function renderMovies(
 
         container.innerHTML = `
             <div class="loading">
-                No movies found.
+                Powered By AYush ⚡
             </div>
         `;
 
