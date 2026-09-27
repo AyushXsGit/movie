@@ -204,7 +204,7 @@ function renderMovies(
 
         container.innerHTML = `
             <div class="loading">
-                Powered By AYush ⚡
+                © 2026·Yaduvanshi
             </div>
         `;
 
