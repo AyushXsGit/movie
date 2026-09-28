@@ -1480,11 +1480,7 @@ async function loadStream() {
                 .toLowerCase()
                 .startsWith("video/")
         ) {
-
-            playVideoFromApi(
-                requestUrl
-            );
-
+            return;
             return;
         }
 
@@ -1545,12 +1541,6 @@ async function loadStream() {
         // ------------------------------------------
         // PLAY
         // ------------------------------------------
-
-        playVideoFromApi(
-            videoSource
-        );
-
-
     } catch (error) {
 
         console.error(
@@ -2161,8 +2151,14 @@ function showDownloadDisabledPopup() {
         popup.id = "downloadDisabledPopup";
         popup.innerHTML = `
             <div class="download-disabled-popup-content" role="dialog" aria-modal="true">
-                <h3>Download currently disabled</h3>
-                <p>~Paisa nhi hai service k liye</p>
+                <h3>How to download movies</h3>
+                <div class="download-steps">
+                    <div>Download this app → <a href="https://play.google.com/store/apps/details?id=com.iam.app.mpdownloader" target="_blank" rel="noopener">MP Downloader</a></div>
+                    <div>Open the app → Tap the 3-dot menu → Settings → Network Type → Select All</div>
+                    <div>Come back to this website → Copy Stream URL</div>
+                    <div>Go back to the app → Paste the URL → Hit Enter</div>
+                    <div>Select your resolution → Hit Download</div>
+                </div>
                 <button type="button" id="downloadDisabledClose">OK</button>
             </div>
         `;
