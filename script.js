@@ -1480,8 +1480,9 @@ async function loadStream() {
                 .toLowerCase()
                 .startsWith("video/")
         ) {
-            return;
-            return;
+            throw new Error(
+                "Stream API returned a direct video response instead of a stream URL."
+            );
         }
 
 
@@ -1539,8 +1540,12 @@ async function loadStream() {
 
 
         // ------------------------------------------
-        // PLAY
+        // EXTERNAL PLAYER UI ONLY
         // ------------------------------------------
+        // The internal browser/DASH player is disabled.
+        // Show external-player buttons for the selected stream
+        // without auto-playing anything in the browser.
+        playVideoFromApi(videoSource);
     } catch (error) {
 
         console.error(
