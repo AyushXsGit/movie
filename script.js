@@ -350,6 +350,15 @@ async function loadHome() {
 
 async function searchMovies(query) {
 
+    clearTimeout(suggestionTimeout);
+    suggestionRequestId++;
+
+    const suggestionsBox = $("#suggestions");
+
+    if (suggestionsBox) {
+        suggestionsBox.style.display = "none";
+    }
+
     query =
         query.trim();
 
@@ -449,6 +458,7 @@ $("#searchInput")
 // ======================================================
 
 let suggestionTimeout;
+let suggestionRequestId = 0;
 
 
 $("#searchInput")
@@ -487,6 +497,9 @@ $("#searchInput")
 
 async function loadSuggestions(query) {
 
+    const requestId =
+        suggestionRequestId;
+
     try {
 
         const data =
@@ -494,9 +507,12 @@ async function loadSuggestions(query) {
                 `/search/suggest?q=${encodeURIComponent(query)}`
             );
 
+        if (requestId !== suggestionRequestId) {
+            return;
+        }
+
         const suggestions =
             data?.suggestions || [];
-
         const box =
             $("#suggestions");
 
